@@ -1,9 +1,9 @@
-# High-Frequency Market Microstructure & Order Book Analysis
+## High-Frequency Market Microstructure & Order Book Analysis
 
-**R + SQL** analysis of message-level limit order book data. The pipeline
+R + SQL analysis of message-level limit order book data. The pipeline
 reads LOBSTER-format Nasdaq order book data (or a full simulated trading day),
 computes the standard microstructure measures **in SQL**, and fits and plots
-the models **in R**:
+the models in R:
 
 | Question | Measure | Where |
 |---|---|---|
@@ -16,14 +16,14 @@ the models **in R**:
 | Is order flow persistent? | Trade-sign autocorrelation | `R/analysis.R` |
 | How does the day evolve? | Intraday activity, spread, depth and volatility | `sql/08` |
 
-## Results (one simulated trading day, ~270k messages)
+### Results (one simulated trading day, ~270k messages)
 
 | Finding | Value |
 |---|---|
-| OFI R² (10s buckets, depth-scaled) | **0.583** (t = 57.1, n = 2,339) |
-| Next mid move called by sign of L1 imbalance | **61.2%** (depth-weighted: 59.8%) |
-| P(next move up), most ask-heavy → most bid-heavy decile | **0.29 → 0.75** |
-| Impact exponent (impact ∝ size^b) | **0.44** (square-root law ≈ 0.5) |
+| OFI R² (10s buckets, depth-scaled) | 0.583 (t = 57.1, n = 2,339) |
+| Next mid move called by sign of L1 imbalance | 61.2% (depth-weighted: 59.8%) |
+| P(next move up), most ask-heavy → most bid-heavy decile | 0.29 → 0.75 |
+| Impact exponent (impact ∝ size^b) | 0.44 (square-root law ≈ 0.5) |
 | Quoted / effective / Roll spread | $0.0110 / $0.0121 / $0.0043 |
 | Daily realized vol at 1s sampling: trade vs. mid | 0.89% vs. 0.46% |
 | Lag-1 trade-sign autocorrelation | 0.69 |
@@ -35,13 +35,13 @@ the models **in R**:
 Two things worth noticing. First, mid-quote volatility is flat across sampling
 intervals, while trade-price volatility nearly doubles at 1-second sampling.
 That gap is bid-ask bounce, the reason high-frequency volatility estimators
-subsample. Second, the Roll spread badly *under*-estimates the true spread
+subsample. Second, the Roll spread badly under-estimates the true spread
 here. Roll's model assumes trade signs are independent, and real order flow
 (like this simulation's) is strongly autocorrelated.
 
 `Rscript run_all.R` writes all numbers to `output/RESULTS.md` and all 8 charts to `output/figures/`.
 
-## Quick start
+### Quick start
 
 ```bash
 Rscript install.R          # DBI, RSQLite, ggplot2, rmarkdown, knitr, testthat
@@ -57,7 +57,7 @@ Outputs:
 - `output/RESULTS.md`: headline numbers
 - `report/report.html`: the write-up, with formulas and model output
 
-## Using real data (LOBSTER)
+### Using real data (LOBSTER)
 
 [LOBSTER](https://lobsterdata.com) provides free sample days for several
 Nasdaq stocks (AAPL, AMZN, GOOG, INTC, MSFT). Unzip a message/orderbook pair
@@ -70,7 +70,7 @@ Rscript run_all.R data/lobster/AAPL
 Nothing else changes. The simulator writes exactly the LOBSTER format, so the
 SQL and R code are identical for simulated and real data.
 
-## Project structure
+### Project structure
 
 ```
 ├── run_all.R                  # end-to-end pipeline
@@ -94,23 +94,23 @@ SQL and R code are identical for simulated and real data.
 └── tests/testthat/test-pipeline.R
 ```
 
-## SQL design notes
+### SQL design notes
 
-- **Engine-neutral.** SQLite is the default engine. The SQL is written to also
+- Engine-neutral. SQLite is the default engine. The SQL is written to also
   run on DuckDB (`options(lobms.engine = "duckdb")`): it uses no engine-specific functions,
   writes `* 1.0` explicitly for float division, wraps every denominator in
   `NULLIF`, and buckets integer time as `t_ms - t_ms % width`.
-- **Window functions do the work.** `LAG` for order flow imbalance and returns,
+- Window functions do the work. `LAG` for order flow imbalance and returns,
   running `SUM` to stitch fills into trades, `NTILE` for deciles.
-- **Forward fill without `IGNORE NULLS`.** A running `COUNT(x)` assigns group
+- Forward fill without `IGNORE NULLS`. A running `COUNT(x)` assigns group
   ids, and `MAX(x)` fills within each group (`03_time_grid.sql`).
-- **"Next mid change" without an O(n²) subquery.** A running count of mid
+- "Next mid change" without an O(n²) subquery. A running count of mid
   changes tells each book state which change number it's waiting for, and a
   join on `change_no = n + 1` finds it (`07_imbalance_signal.sql`).
-- **Trade reconstruction.** LOBSTER logs one execution per resting order hit.
+- Trade reconstruction. LOBSTER logs one execution per resting order hit.
   Consecutive fills with the same timestamp and sign are one marketable order.
 
-## The simulator
+### The simulator
 
 `R/simulate_lob.R` is a zero-intelligence order book model in the spirit of
 Smith–Farmer et al. (2003) and Cont–Stoikov–Talreja (2010):
@@ -125,7 +125,7 @@ It writes LOBSTER message and orderbook files. All of its parameters
 (arrival rate, market-order share, cancel hazard, sign persistence, levels,
 session length) are function arguments.
 
-## References
+### References
 
 - Cont, Kukanov & Stoikov (2014), *The Price Impact of Order Book Events*
 - Gould & Bonart (2016), *Queue Imbalance as a One-Tick-Ahead Price Predictor*
