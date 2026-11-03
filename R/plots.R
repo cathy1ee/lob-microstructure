@@ -67,7 +67,7 @@ plot_impact <- function(res) {
     ggplot2::scale_x_log10() +
     ggplot2::scale_color_manual(values = PAL, name = "Horizon") +
     ggplot2::labs(title = "Price impact by trade size",
-                  subtitle = sprintf("Signed mid move after the trade, by size decile; 5s exponent = %.2f",
+                  subtitle = sprintf("Signed mid move after the trade, by trade-size bucket; 5s exponent = %.2f",
                                      res$impact$exponent),
                   x = "Average trade size (shares, log scale)", y = "Impact (bps)") +
     theme_lob()
@@ -75,18 +75,19 @@ plot_impact <- function(res) {
 
 plot_cost_decomposition <- function(res) {
   d <- res$impact$by_size
+  lab <- factor(d$size_label, levels = d$size_label[order(d$size_bucket)])
   long <- rbind(
-    data.frame(size_decile = d$size_decile, part = "Realized spread (to liquidity provider)",
+    data.frame(size = lab, part = "Realized spread (to liquidity provider)",
                bps = d$real_spread_5s_bps),
-    data.frame(size_decile = d$size_decile, part = "2 x price impact (adverse selection)",
+    data.frame(size = lab, part = "2 x price impact (adverse selection)",
                bps = 2 * d$impact_5s_bps)
   )
-  ggplot2::ggplot(long, ggplot2::aes(factor(size_decile), bps, fill = part)) +
+  ggplot2::ggplot(long, ggplot2::aes(size, bps, fill = part)) +
     ggplot2::geom_col(width = 0.7) +
     ggplot2::scale_fill_manual(values = PAL[c(4, 2)], name = NULL) +
     ggplot2::labs(title = "Effective spread = realized spread + 2 x impact",
                   subtitle = "Who earns the spread? Decomposition at a 5s horizon",
-                  x = "Trade size decile (1 = smallest)", y = "bps") +
+                  x = "Trade size (shares)", y = "bps") +
     theme_lob()
 }
 

@@ -90,7 +90,7 @@ R² = **`r sprintf('%.3f', res$ofi$r2_scaled)`**, scaled by depth
 plot_impact(res)
 ```
 
-Fitting $\text{impact} \propto \text{size}^{b}$ across size deciles gives
+Fitting $\text{impact} \propto \text{size}^{b}$ across trade-size buckets gives
 $b$ = **`r sprintf('%.2f', res$impact$exponent)`**. The empirical "square-root
 law" predicts about 0.5.
 

@@ -49,14 +49,15 @@ fit_imbalance <- function(con) {
 }
 
 # Square-root law check: impact ~ a * size^b  (b ~ 0.5 in many markets).
-fit_impact <- function(con, horizon = "impact_5s_bps") {
+# Fit on size buckets with enough trades, weighted by trade count.
+fit_impact <- function(con, horizon = "impact_5s_bps", min_trades = 30) {
   d <- tbl(con, "impact_by_size")
   y <- d[[horizon]]
-  ok <- is.finite(y) & y > 0
+  ok <- is.finite(y) & y > 0 & d$n_trades >= min_trades
   exponent <- NA_real_
   model <- NULL
   if (sum(ok) >= 3) {
-    model <- stats::lm(log(y[ok]) ~ log(d$avg_size[ok]))
+    model <- stats::lm(log(y[ok]) ~ log(d$avg_size[ok]), weights = d$n_trades[ok])
     exponent <- unname(stats::coef(model)[2])
   }
   list(by_size = d, exponent = exponent, model = model, horizon = horizon)

@@ -10,7 +10,7 @@ the models in R:
 | How expensive is it to trade? | Quoted, effective, realized and Roll spreads | `sql/05`, `sql/09` |
 | Does the book predict the next price move? | L1 and depth-weighted queue imbalance → P(next move up) | `sql/07` |
 | What moves prices? | Order Flow Imbalance (Cont–Kukanov–Stoikov 2014) | `sql/04` |
-| How much do trades move the price, and for how long? | Price impact at 0s/1s/5s/30s/60s, by size decile; square-root law fit | `sql/05` |
+| How much do trades move the price, and for how long? | Price impact at 0s/1s/5s/30s/60s, by trade-size bucket; square-root law fit | `sql/05` |
 | Who earns the spread? | Effective spread = realized spread + 2 × impact (adverse selection) | `sql/05` |
 | How noisy are high-frequency prices? | Volatility signature plot (mid vs. trade prices) | `sql/06` |
 | Is order flow persistent? | Trade-sign autocorrelation | `R/analysis.R` |

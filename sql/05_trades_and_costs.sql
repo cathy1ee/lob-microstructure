@@ -80,14 +80,34 @@ LEFT JOIN time_grid g5  ON g5.sec_ms  = q.sec_ms + 5000
 LEFT JOIN time_grid g30 ON g30.sec_ms = q.sec_ms + 30000
 LEFT JOIN time_grid g60 ON g60.sec_ms = q.sec_ms + 60000;
 
--- Average impact path by trade-size decile (the "impact curve").
+-- Average impact path by trade-size bucket (the "impact curve").
+-- Fixed buckets, not deciles: real trade sizes pile up on round lots (often
+-- a large share of all trades is exactly 100 shares), and equal-count deciles
+-- would split one size across several "deciles" with identical sizes.
 DROP TABLE IF EXISTS impact_by_size;
 CREATE TABLE impact_by_size AS
 WITH d AS (
-    SELECT *, NTILE(10) OVER (ORDER BY size) AS size_decile
+    SELECT *,
+           CASE WHEN size < 100  THEN 1
+                WHEN size = 100  THEN 2
+                WHEN size < 200  THEN 3
+                WHEN size < 300  THEN 4
+                WHEN size < 500  THEN 5
+                WHEN size < 1000 THEN 6
+                WHEN size < 2000 THEN 7
+                ELSE 8 END AS size_bucket,
+           CASE WHEN size < 100  THEN '1-99'
+                WHEN size = 100  THEN '100'
+                WHEN size < 200  THEN '101-199'
+                WHEN size < 300  THEN '200-299'
+                WHEN size < 500  THEN '300-499'
+                WHEN size < 1000 THEN '500-999'
+                WHEN size < 2000 THEN '1000-1999'
+                ELSE '2000+' END AS size_label
     FROM trade_costs
 )
-SELECT size_decile,
+SELECT size_bucket,
+       size_label,
        COUNT(*) AS n_trades,
        AVG(size) AS avg_size,
        AVG(size_to_touch) AS avg_size_to_touch,
@@ -100,8 +120,8 @@ SELECT size_decile,
        AVG(impact_30s_bps) AS impact_30s_bps,
        AVG(impact_60s_bps) AS impact_60s_bps
 FROM d
-GROUP BY size_decile
-ORDER BY size_decile;
+GROUP BY size_bucket, size_label
+ORDER BY size_bucket;
 
 -- Roll (1984) implied spread: bid-ask bounce makes consecutive trade-price
 -- changes negatively autocorrelated; spread = 2 * sqrt(-cov(dp_t, dp_{t-1})).
