@@ -1,0 +1,11 @@
+output/
+data/sample/
+data/lobster/
+*.sqlite
+*.duckdb
+*.duckdb.wal
+.Rhistory
+.RData
+.Rproj.user/
+report/*.html
+report/*_files/

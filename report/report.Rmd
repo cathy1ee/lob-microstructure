@@ -1,0 +1,144 @@
+---
+title: "High-Frequency Market Microstructure & Order Book Analysis"
+author: "Catherine Lee"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: hide
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 4.8, dpi = 120)
+```
+
+```{r load}
+for (f in c("R/db.R", "R/analysis.R", "R/plots.R")) source(f)
+if (!file.exists("output/lob.sqlite")) stop("run `Rscript run_all.R` first")
+con <- db_connect("output/lob.sqlite")
+res <- analyze(con)
+```
+
+## Data
+
+The data is a LOBSTER message file (every order submission, cancellation and
+execution) paired with its order book file (the top levels of the book after
+every message). The default run uses one simulated trading day from a
+zero-intelligence order book model. Point `run_all.R` at a real LOBSTER pair
+to run exactly the same pipeline on Nasdaq data.
+
+All of the microstructure measures are computed in SQL (`sql/`). R fits the
+models and draws the charts.
+
+```{r summary}
+knitr::kable(res$summary, col.names = c("Metric", "Value"))
+```
+
+## 1. Spreads
+
+```{r spreads}
+plot_spread_distribution(res)
+```
+
+Quoted spread: **$`r sprintf('%.4f', res$quoted_spread)`**.
+Effective spread (what traders actually pay, from trade prices against the
+pre-trade mid): **$`r sprintf('%.4f', res$effective_spread)`**.
+Roll's (1984) spread, inferred only from trade-price autocovariance:
+**$`r sprintf('%.4f', res$roll)`**.
+
+## 2. Queue imbalance and the next price move
+
+$$\text{Imbalance} = \frac{Q^{bid} - Q^{ask}}{Q^{bid} + Q^{ask}}$$
+
+When the bid queue is much larger than the ask queue, the ask is more likely
+to be depleted first, so the next mid-price move is more likely to be up.
+
+```{r imbalance}
+plot_imbalance(res)
+```
+
+The sign of L1 imbalance predicts the direction of the next mid move
+**`r sprintf('%.1f%%', 100 * res$imbalance$hit_rate_l1)`** of the time
+(n = `r format(res$imbalance$n, big.mark = ",")` book states).
+
+```{r imbalance-model}
+summary(res$imbalance$model_l1)$coefficients
+```
+
+## 3. Order flow imbalance (Cont, Kukanov & Stoikov 2014)
+
+OFI nets out the changes in queue size at the best bid and ask on every book
+update. Summed over 10-second buckets, it explains price changes linearly:
+
+$$\Delta P_k = \beta \, \frac{OFI_k}{\bar D_k} + \varepsilon_k$$
+
+```{r ofi}
+plot_ofi(res)
+summary(res$ofi$model_scaled)$coefficients
+```
+
+R² = **`r sprintf('%.3f', res$ofi$r2_scaled)`**, scaled by depth
+(`r sprintf('%.3f', res$ofi$r2_raw)`, unscaled).
+
+## 4. Price impact and transaction costs
+
+```{r impact}
+plot_impact(res)
+```
+
+Fitting $\text{impact} \propto \text{size}^{b}$ across size deciles gives
+$b$ = **`r sprintf('%.2f', res$impact$exponent)`**. The empirical "square-root
+law" predicts about 0.5.
+
+```{r costs}
+plot_cost_decomposition(res)
+knitr::kable(res$impact$by_size, digits = 3)
+```
+
+The effective spread splits into the **realized spread** (what the liquidity
+provider keeps after 5 seconds) and **2 × price impact** (what they lose to
+informed flow, i.e. adverse selection). Larger trades carry more information.
+
+## 5. Volatility signature
+
+```{r signature}
+plot_signature(res)
+```
+
+If prices had no microstructure noise, realized volatility would be flat
+across sampling intervals. Trade prices bounce between the bid and the ask,
+which inflates realized volatility at 1–10 second sampling. Mid quotes are
+much more robust. This is why high-frequency volatility estimators subsample
+or use pre-averaging.
+
+## 6. Trade-sign autocorrelation
+
+```{r acf}
+plot_sign_acf(res)
+```
+
+Buys tend to follow buys. Large parent orders get split into many child
+orders (Lillo & Farmer 2004).
+
+## 7. Intraday patterns
+
+```{r intraday, fig.height = 6}
+plot_intraday(res)
+```
+
+```{r close, include = FALSE}
+DBI::dbDisconnect(con)
+```
+
+## References
+
+- Cont, Kukanov & Stoikov (2014). *The Price Impact of Order Book Events.* Journal of Financial Econometrics.
+- Cartea, Jaimungal & Penalva (2015). *Algorithmic and High-Frequency Trading.* Cambridge University Press.
+- Roll (1984). *A Simple Implicit Measure of the Effective Bid-Ask Spread.* Journal of Finance.
+- Andersen, Bollerslev, Diebold & Labys (2000). *Great Realizations.* Risk.
+- Lillo & Farmer (2004). *The Long Memory of the Efficient Market.* Studies in Nonlinear Dynamics & Econometrics.
+- Gould & Bonart (2016). *Queue Imbalance as a One-Tick-Ahead Price Predictor in a Limit Order Book.* Market Microstructure and Liquidity.
